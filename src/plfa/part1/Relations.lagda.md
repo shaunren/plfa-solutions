@@ -363,6 +363,7 @@ argument is `s≤s`.  Why is it ok to omit them?
 
 ```agda
 -- Your code goes here
+
 ```
 
 
@@ -553,6 +554,28 @@ Show that multiplication is monotonic with regard to inequality.
 
 ```agda
 -- Your code goes here
+open import Data.Nat using (_*_)
+open import Data.Nat.Properties using (*-comm)
+
+*-monoʳ-≤ : ∀ (n p q : ℕ)
+  → p ≤ q
+    -------------
+  → n * p ≤ n * q
+*-monoʳ-≤ zero    p q p≤q = z≤n
+*-monoʳ-≤ (suc n) p q p≤q = +-mono-≤ p q (n * p) (n * q) p≤q (*-monoʳ-≤ n p q p≤q)
+
+*-monoˡ-≤ : ∀ (m n p : ℕ)
+  → m ≤ n
+    -------------
+  → m * p ≤ n * p
+*-monoˡ-≤ m n p m≤n rewrite *-comm m p | *-comm n p  = *-monoʳ-≤ p m n m≤n
+
+*-mono-≤ : ∀ (m n p q : ℕ)
+  → m ≤ n
+  → p ≤ q
+    -------------
+  → m * p ≤ n * q
+*-mono-≤ m n p q m≤n p≤q = ≤-trans (*-monoˡ-≤ m n p m≤n) (*-monoʳ-≤ n p q p≤q)
 ```
 
 
@@ -601,6 +624,13 @@ exercise exploits the relation between < and ≤.)
 
 ```agda
 -- Your code goes here
+<-trans' : ∀ (m n p : ℕ)
+  → m < n
+  → n < p
+    -----
+  → m < p
+<-trans' zero    _       (suc p)       z<s       _    =  z<s
+<-trans' (suc m) (suc n) (suc p) (s<s m<n) (s<s n<p)  =  s<s (<-trans' m n p m<n n<p)
 ```
 
 #### Exercise `trichotomy` (practice) {#trichotomy}
@@ -619,6 +649,31 @@ similar to that used for totality.
 
 ```agda
 -- Your code goes here
+data Trichotomous (m n : ℕ) : Set where
+
+  lesser :
+      m < n
+      ----------------
+    → Trichotomous m n
+
+  greater :
+      n < m
+      ----------------
+    → Trichotomous m n
+
+  equal :
+      m ≡ n
+      ----------------
+    → Trichotomous m n
+
+trichotomous : ∀ (m n : ℕ) → Trichotomous m n
+trichotomous zero zero       = equal refl
+trichotomous zero (suc n)    = lesser z<s
+trichotomous (suc m) zero    = greater z<s
+trichotomous (suc m) (suc n) with trichotomous m n
+...                             | lesser m<n  = lesser (s<s m<n)
+...                             | greater n<m = greater (s<s n<m)
+...                             | equal refl = equal refl
 ```
 
 #### Exercise `+-mono-<` (practice) {#plus-mono-less}
@@ -628,6 +683,26 @@ As with inequality, some additional definitions may be required.
 
 ```agda
 -- Your code goes here
++-monoʳ-< : ∀ (n p q : ℕ)
+  → p < q
+    -------------
+  → n + p < n + q
++-monoʳ-< zero    p q p<q  =  p<q
++-monoʳ-< (suc n) p q p<q  =  s<s (+-monoʳ-< n p q p<q)
+
++-monoˡ-< : ∀ (m n p : ℕ)
+  → m < n
+    -------------
+  → m + p < n + p
++-monoˡ-< m n p m<n  rewrite +-comm m p | +-comm n p  = +-monoʳ-< p m n m<n
+
++-mono-< : ∀ (m n p q : ℕ)
+  → m < n
+  → p < q
+    -------------
+  → m + p < n + q
++-mono-< m n p q m<n p<q  =  <-trans' (m + p) (n + p) (n + q) (+-monoˡ-< m n p m<n) (+-monoʳ-< n p q p<q)
+
 ```
 
 #### Exercise `≤-iff-<` (recommended) {#leq-iff-less}
@@ -636,6 +711,20 @@ Show that `suc m ≤ n` implies `m < n`, and conversely.
 
 ```agda
 -- Your code goes here
+
+≤-imp-< : ∀ (m n : ℕ)
+  → suc m ≤ n
+  -------
+  → m < n
+≤-imp-< zero (suc n) _              = z<s
+≤-imp-< (suc m) (suc n) (s≤s 1+m≤n) = s<s (≤-imp-< m n 1+m≤n)
+
+<-imp-≤ : ∀ (m n : ℕ)
+  → m < n
+  -----------
+  → suc m ≤ n
+<-imp-≤ zero (suc n) _            = s≤s z≤n
+<-imp-≤ (suc m) (suc n) (s<s m<n) = s≤s (<-imp-≤ m n m<n)
 ```
 
 #### Exercise `<-trans-revisited` (practice) {#less-trans-revisited}
@@ -646,6 +735,18 @@ the fact that inequality is transitive.
 
 ```agda
 -- Your code goes here
+≤-refl' : ∀ {n : ℕ}
+    -----
+  → n ≤ suc n
+≤-refl' {zero} = z≤n
+≤-refl' {suc n} = s≤s ≤-refl'
+
+<-trans'' : ∀ (m n p : ℕ)
+  → m < n
+  → n < p
+    -----
+  → m < p
+<-trans'' m n p m<n n<p = ≤-imp-< m p (≤-trans (≤-trans (<-imp-≤ m n m<n) ≤-refl') (<-imp-≤ n p n<p))
 ```
 
 
@@ -753,6 +854,22 @@ Show that the sum of two odd numbers is even.
 
 ```agda
 -- Your code goes here
+e+o≡o : ∀ {m n : ℕ}
+  → even m
+  → odd n
+    -----------
+  → odd (m + n)
+
+o+o≡e : ∀ {m n : ℕ}
+  → odd m
+  → odd n
+    ------------
+  → even (m + n)
+
+e+o≡o zero on     = on
+e+o≡o (suc om) on   = suc (o+o≡e om on)
+
+o+o≡e (suc em) on = suc (e+o≡o em on)
 ```
 
 #### Exercise `Bin-predicates` (stretch) {#Bin-predicates}
@@ -806,6 +923,132 @@ if `One b` then `1` is less or equal to the result of `from b`.)
 
 ```agda
 -- Your code goes here
+
+open Eq using (_≡_; refl; cong; sym)
+open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
+
+data Bin : Set where
+  ⟨⟩ : Bin
+  _O : Bin → Bin
+  _I : Bin → Bin
+
+inc : Bin → Bin
+inc ⟨⟩    = ⟨⟩ I
+inc (b O) = b I
+inc (b I) = (inc b) O
+
+to   : ℕ → Bin
+to zero    = ⟨⟩ O
+to (suc n) = inc (to n)
+
+from : Bin → ℕ
+from ⟨⟩    = 0
+from (b O) = from b + from b
+from (b I) = suc (from b + from b)
+
+data Can : Bin → Set
+data One : Bin → Set
+
+data Can where
+  zero :
+      ---------
+      Can (⟨⟩ O)
+
+  one : ∀ {b : Bin}
+    → One b
+      ---------
+    → Can b
+
+data One where
+  ⟨⟩I :
+      ----------
+      One (⟨⟩ I)
+
+  _O : ∀ {b : Bin}
+    → One b
+      ----------
+    → One (b O)
+
+  _I : ∀ {b : Bin}
+    → One b
+      ----------
+    → One (b I)
+
+inc-one : ∀ {b : Bin}
+  → One b
+    -----------
+  → One (inc b)
+inc-one ⟨⟩I = ⟨⟩I O
+inc-one (ob O) = ob I
+inc-one (ob I) = (inc-one ob) O
+
+inc-can : ∀ {b : Bin}
+  → Can b
+    ------------
+  → Can (inc b)
+inc-can zero   = one ⟨⟩I
+inc-can (one ob) = one (inc-one ob)
+
+to-can : ∀ {n : ℕ}
+    ----------
+  → Can (to n)
+to-can {zero}  = zero
+to-can {suc n} = inc-can (to-can {n})
+
+from-inc : ∀ {b : Bin} → from (inc b) ≡ suc (from b)
+from-inc {⟨⟩} = refl
+from-inc {b O} = refl
+from-inc {b I} rewrite from-inc {b} | +-comm (from b) 0 | +-comm (from b) (suc (from b)) = refl
+
+data Positive : ℕ → Set where
+  one :
+      ---------
+      Positive 1
+
+  suc : ∀ {n : ℕ}
+    → Positive n
+      ----------------
+    → Positive (suc n)
+
+pos-to-2n : ∀ {n : ℕ}
+  → Positive n
+    ---------------------
+  → to (n + n) ≡ (to n) O
+pos-to-2n one = refl
+pos-to-2n (suc {m} pm) rewrite +-comm m (suc m) | pos-to-2n pm = refl
+
+
++-pos : ∀ {m n : ℕ}
+  → Positive m
+  → Positive n
+    ----------------
+  → Positive (m + n)
++-pos one pn      = suc pn
++-pos (suc pm) pn = suc (+-pos pm pn)
+
+one-from-pos : ∀ {b : Bin}
+  → One b
+    -----------------
+  → Positive (from b)
+one-from-pos ⟨⟩I    = one
+one-from-pos (ob O) = +-pos (one-from-pos ob) (one-from-pos ob)
+one-from-pos (ob I) = suc (+-pos (one-from-pos ob) (one-from-pos ob))
+
+to-from-one : ∀ {b : Bin}
+  → One b
+    ---------------
+  → to (from b) ≡ b
+to-from-one ⟨⟩I = refl
+to-from-one (ob O) rewrite pos-to-2n (one-from-pos ob) | to-from-one ob = refl
+to-from-one (ob I) rewrite pos-to-2n (one-from-pos ob) | to-from-one ob = refl
+
+to-from-can : ∀ {b : Bin}
+  → Can b
+    ---------------
+  → to (from b) ≡ b
+to-from-can zero     = refl
+to-from-can (one ob) = to-from-one ob
+
 ```
 
 ## Standard library
