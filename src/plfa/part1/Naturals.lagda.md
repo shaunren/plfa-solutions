@@ -4,6 +4,8 @@ permalink : /Naturals/
 ---
 
 ```agda
+{-# OPTIONS --exact-split #-}
+
 module plfa.part1.Naturals where
 ```
 
@@ -79,6 +81,8 @@ Write out `7` in longhand.
 
 ```agda
 -- Your code goes here
+seven : ℕ
+seven = suc (suc (suc (suc (suc (suc (suc zero))))))
 ```
 
 You will need to give both a type signature and definition for the
@@ -431,6 +435,22 @@ Compute `3 + 4`, writing out your reasoning as a chain of equations, using the e
 
 ```agda
 -- Your code goes here
+_ : 3 + 4 ≡ 7
+_ =
+  begin
+    3 + 4
+  ≡⟨⟩
+    suc (2 + 4)
+  ≡⟨⟩
+    suc (suc (1 + 4))
+  ≡⟨⟩
+    suc (suc (suc (0 + 4)))
+  ≡⟨⟩
+    suc (suc (suc 4))
+  ≡⟨⟩
+    7
+  ∎
+
 ```
 
 
@@ -493,6 +513,20 @@ Compute `3 * 4`, writing out your reasoning as a chain of equations, using the e
 
 ```agda
 -- Your code goes here
+_ =
+  begin
+    3 * 4
+  ≡⟨⟩
+    4 + (2 * 4)
+  ≡⟨⟩
+    4 + (4 + (1 * 4))
+  ≡⟨⟩
+    4 + (4 + (4 + (0 * 4)))
+  ≡⟨⟩
+    4 + (4 + (4 + 0))
+  ≡⟨⟩
+    12
+  ∎
 ```
 
 
@@ -507,6 +541,9 @@ Check that `3 ^ 4` is `81`.
 
 ```agda
 -- Your code goes here
+_^_ : ℕ → ℕ → ℕ
+m ^ zero = suc zero
+m ^ (suc n) = m * (m ^ n)
 ```
 
 
@@ -535,6 +572,20 @@ We can do a simple analysis to show that all the cases are covered.
       - If it is `suc m`, then the third equation applies.
 
 Agda will raise an error if all the cases are not covered.
+
+Enumerating the cases as above ensures that exactly one equation
+will apply.  Say the second line was instead written
+
+    zero  ∸ n  =  zero
+
+Then it would not be clear whether Agda should use the first
+or second line to simplify `zero ∸ zero`.  In this case, both
+lines lead to the same answer, `zero`, but that may not be
+the case in general.  The `--exact-split` flag, set at the beginning of this chapter,
+causes Agda to raise an error if cases overlap.  We will normally set the flag,
+but it will be omitted in Chapter [Decidable](/Decidable/) to permit
+an interesting example in Section [Logical Connectives](/Decidable/#logical-connectives).
+
 As with addition and multiplication, the recursive definition is well
 founded because monus on bigger numbers is defined in terms of monus
 on smaller numbers.
@@ -567,22 +618,7 @@ _ =
   ∎
 ```
 
-We defined monus to ensure that exactly one equation
-will apply.  Say the second line was instead written
 
-    zero  ∸ n  =  zero
-
-Then it would not be clear whether Agda should use the first
-or second line to simplify `zero ∸ zero`.  In this case, both
-lines lead to the same answer, `zero`, but that may not be
-the case in general.  Putting the line
-
-    {- OPTIONS --exact-split -}
-
-at the beginning of a file causes Agda to raise an error if cases
-overlap, which is sometimes helpful. We will give an example where
-overlap may be desirable in
-Section [Logical Connectives](/Decidable/#logical-connectives).
 
 #### Exercise `∸-example₁` and `∸-example₂` (recommended) {#monus-examples}
 
@@ -590,6 +626,33 @@ Compute `5 ∸ 3` and `3 ∸ 5`, writing out your reasoning as a chain of equati
 
 ```agda
 -- Your code goes here
+
+_ =
+  begin
+    5 ∸ 3
+  ≡⟨⟩
+    4 ∸ 2
+  ≡⟨⟩
+    3 ∸ 1
+  ≡⟨⟩
+    2 ∸ 0
+  ≡⟨⟩
+    2
+  ∎
+
+_ =
+  begin
+    3 ∸ 5
+  ≡⟨⟩
+    2 ∸ 4
+  ≡⟨⟩
+    1 ∸ 3
+  ≡⟨⟩
+    0 ∸ 2
+  ≡⟨⟩
+    0
+  ∎
+
 ```
 
 
@@ -937,6 +1000,77 @@ Confirm that these both give the correct answer for zero through four.
 
 ```agda
 -- Your code goes here
+
+inc : Bin → Bin
+inc ⟨⟩ = ⟨⟩ I
+inc (n O) = n I
+inc (n I) = (inc n) O
+
+_ : inc (⟨⟩ O) ≡ ⟨⟩ I
+_ = refl
+
+_ : inc (⟨⟩ I) ≡ ⟨⟩ I O
+_ = refl
+
+_ : inc (⟨⟩ I O) ≡ ⟨⟩ I I
+_ = refl
+
+_ : inc (⟨⟩ I I) ≡ ⟨⟩ I O O
+_ = refl
+
+_ : inc (⟨⟩ I O O) ≡ ⟨⟩ I O I
+_ = refl
+
+
+to : ℕ → Bin
+to zero = ⟨⟩ O
+to (suc n) = inc (to n)
+
+from : Bin → ℕ
+from ⟨⟩ = zero
+from (n O) = 2 * from n
+from (n I) = 2 * from n + 1
+
+-- Confirm
+_ : to 0 ≡ ⟨⟩ O
+_ = refl
+
+_ : to 1 ≡ ⟨⟩ I
+_ = refl
+
+_ : to 2 ≡ ⟨⟩ I O
+_ = refl
+
+_ : to 3 ≡ ⟨⟩ I I
+_ = refl
+
+_ : to 4 ≡ ⟨⟩ I O O
+_ = refl
+
+_ : from ⟨⟩ ≡ 0
+_ = refl
+
+_ : from (⟨⟩ O) ≡ 0
+_ = refl
+
+_ : from (⟨⟩ I) ≡ 1
+_ = refl
+
+_ : from (⟨⟩ O I) ≡ 1
+_ = refl
+
+_ : from (⟨⟩ I O) ≡ 2
+_ = refl
+
+_ : from (⟨⟩ I I) ≡ 3
+_ = refl
+
+_ : from (⟨⟩ I O O) ≡ 4
+_ = refl
+
+_ : from (⟨⟩ O O I O O) ≡ 4
+_ = refl
+
 ```
 
 
