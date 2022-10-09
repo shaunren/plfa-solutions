@@ -26,7 +26,7 @@ and some operations upon them.  We also require a couple of new operations,
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; cong; sym)
 open Eq.≡-Reasoning using (begin_; _≡⟨⟩_; step-≡; _∎)
-open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _∸_;_^_)
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_; _∸_; _^_)
 ```
 (Importing `step-≡` defines `_≡⟨_⟩_`.)
 
@@ -623,7 +623,7 @@ Proposition `+-assoc (m + n) p q` shifts parentheses from left to right:
 
     ((m + n) + p) + q ≡ (m + n) + (p + q)
 
-To shift them the other way, we use `sym (+-assoc (m + n) p q)`:
+To shift them the other way, we use `sym (+-assoc n p q)`:
 
     (m + n) + (p + q) ≡ ((m + n) + p) + q
 
@@ -875,6 +875,19 @@ is associative and commutative.
 
 ```agda
 -- Your code goes here
+
++-swap : ∀ (m n p : ℕ) → m + (n + p) ≡ n + (m + p)
++-swap m n p =
+  begin
+    m + (n + p)
+  ≡⟨ sym (+-assoc m n p) ⟩
+    (m + n) + p
+  ≡⟨ cong (_+ p) (+-comm m n) ⟩
+    (n + m) + p
+  ≡⟨ +-assoc n m p ⟩
+    n + (m + p)
+  ∎
+
 ```
 
 
@@ -888,6 +901,20 @@ for all naturals `m`, `n`, and `p`.
 
 ```agda
 -- Your code goes here
+
+*-distrib-+ : ∀ (m n p : ℕ) → (m + n) * p ≡ m * p + n * p
+*-distrib-+ zero n p = refl
+*-distrib-+ (suc m) n p =
+  begin
+    (suc m + n) * p
+  ≡⟨⟩
+    p + ((m + n) * p)
+  ≡⟨ cong (p +_) (*-distrib-+ m n p) ⟩
+    p + (m * p + n * p)
+  ≡⟨ sym (+-assoc p (m * p) (n * p)) ⟩
+    p + m * p + n * p
+  ∎
+
 ```
 
 
@@ -901,6 +928,21 @@ for all naturals `m`, `n`, and `p`.
 
 ```agda
 -- Your code goes here
+
+*-assoc : ∀ (m n p : ℕ) → (m * n) * p ≡ m * (n * p)
+*-assoc zero n p = refl
+*-assoc (suc m) n p =
+  begin
+    ((suc m) * n) * p
+  ≡⟨⟩
+    (n + (m * n)) * p
+  ≡⟨ *-distrib-+ n (m * n) p ⟩
+    n * p + ((m * n) * p)
+  ≡⟨ cong ((n * p) +_) (*-assoc m n p) ⟩
+    n * p + (m * (n * p))
+  ≡⟨⟩
+    (suc m) * (n * p)
+  ∎
 ```
 
 
@@ -915,7 +957,32 @@ you will need to formulate and prove suitable lemmas.
 
 ```agda
 -- Your code goes here
-```
+
+*-identityʳ : ∀ (m : ℕ) → m * zero ≡ zero
+*-identityʳ zero = refl
+*-identityʳ (suc m) rewrite *-identityʳ m = refl
+
+*-suc : ∀ (m n : ℕ) → m * (suc n) ≡ m + (m * n)
+*-suc zero n = refl
+*-suc (suc m) n =
+  begin
+    (suc m) * (suc n)
+  ≡⟨ cong ((suc n) +_) (*-suc m n) ⟩
+    (suc n) + (m + m * n)
+  ≡⟨ sym (+-assoc (suc n) m (m * n)) ⟩
+    (suc n + m) + m * n
+  ≡⟨ cong (_+ (m * n)) (sym (+-suc n m)) ⟩
+    (n + suc m) + m * n
+  ≡⟨ cong (_+ (m * n)) (+-comm n (suc m)) ⟩
+    (suc m + n) + m * n
+  ≡⟨ +-assoc (suc m) n (m * n) ⟩
+    suc m + ((suc m) * n)
+  ∎
+
+*-comm : ∀ (m n : ℕ) → m * n ≡ n * m
+*-comm m zero    rewrite *-identityʳ m          = refl
+*-comm m (suc n) rewrite *-suc m n | *-comm m n = refl
+ ```
 
 
 #### Exercise `0∸n≡0` (practice) {#zero-monus}
@@ -928,6 +995,11 @@ for all naturals `n`. Did your proof require induction?
 
 ```agda
 -- Your code goes here
+
+0∸n≡0 : ∀ (n : ℕ) → zero ∸ n ≡ zero
+0∸n≡0 zero    = refl
+0∸n≡0 (suc n) = refl
+
 ```
 
 
@@ -941,6 +1013,13 @@ for all naturals `m`, `n`, and `p`.
 
 ```agda
 -- Your code goes here
+
+∸-+-assoc : ∀ (m n p : ℕ) → m ∸ n ∸ p ≡ m ∸ (n + p)
+∸-+-assoc zero zero    p                 = refl
+∸-+-assoc zero (suc n) p rewrite 0∸n≡0 p = refl
+∸-+-assoc (suc m) zero p                            = refl
+∸-+-assoc (suc m) (suc n) p rewrite ∸-+-assoc m n p = refl
+
 ```
 
 
@@ -956,6 +1035,39 @@ for all `m`, `n`, and `p`.
 
 ```
 -- Your code goes here
+
+-- Lemmas
+*-rearrange : ∀ (m n p q : ℕ) → m * n * (p * q) ≡ (m * p) * (n * q)
+*-rearrange m n p q =
+  begin
+    m * n * (p * q)
+  ≡⟨ *-assoc m n (p * q) ⟩
+    m * (n * (p * q))
+  ≡⟨ cong (m *_) (sym (*-assoc n p q)) ⟩
+    m * ((n * p) * q)
+  ≡⟨ cong (m *_) (cong (_* q) (*-comm n p))⟩
+    m * ((p * n) * q)
+  ≡⟨ cong (m *_) (*-assoc p n q) ⟩
+    m * (p * (n * q))
+  ≡⟨ sym (*-assoc m p (n * q)) ⟩
+    m * p * (n * q)
+  ∎
+
+-- #1
+^-distribˡ-+-* : ∀ (m n p : ℕ) → m ^ (n + p) ≡ (m ^ n) * (m ^ p)
+^-distribˡ-+-* m zero p rewrite +-comm (m ^ p) zero = refl
+^-distribˡ-+-* m (suc n) p rewrite ^-distribˡ-+-* m n p | sym (*-assoc m (m ^ n) (m ^ p)) = refl
+
+-- #2
+^-distribʳ-* : ∀ (m n p : ℕ) → (m * n) ^ p ≡ (m ^ p) * (n ^ p)
+^-distribʳ-* m n zero = refl
+^-distribʳ-* m n (suc p) rewrite ^-distribʳ-* m n p | *-rearrange m n (m ^ p) (n ^ p) = refl
+
+-- #3
+^-*-assoc : ∀ (m n p : ℕ) → (m ^ n) ^ p ≡ m ^ (n * p)
+^-*-assoc m n zero rewrite *-identityʳ n = refl
+^-*-assoc m n (suc p) rewrite ^-*-assoc m n p | sym (^-distribˡ-+-* m n (n * p)) | *-suc n p = refl
+
 ```
 
 
@@ -981,6 +1093,41 @@ For each law: if it holds, prove; if not, give a counterexample.
 
 ```agda
 -- Your code goes here
+
+-- Definitions
+data Bin : Set where
+  ⟨⟩ : Bin
+  _O : Bin → Bin
+  _I : Bin → Bin
+
+inc : Bin → Bin
+inc ⟨⟩ = ⟨⟩ I
+inc (n O) = n I
+inc (n I) = (inc n) O
+
+to : ℕ → Bin
+to zero = ⟨⟩ O
+to (suc n) = inc (to n)
+
+from : Bin → ℕ
+from ⟨⟩ = zero
+from (n O) = 2 * from n
+from (n I) = 1 + (2 * from n)
+
+-- #1
+bin-from-inc : ∀ (b : Bin) → from (inc b) ≡ suc (from b)
+bin-from-inc ⟨⟩ = refl
+bin-from-inc (b O) = refl
+bin-from-inc (b I) rewrite bin-from-inc b | +-suc (from b) (from b + 0) = refl
+
+-- #2
+-- Counterexample: to (from (⟨⟩ O I)) = ⟨⟩ I
+
+-- #3
+bin-from-to : ∀ (n : ℕ) → from (to n) ≡ n
+bin-from-to zero = refl
+bin-from-to (suc n) rewrite bin-from-inc (to n) | bin-from-to n = refl
+
 ```
 
 
