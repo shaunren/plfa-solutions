@@ -436,31 +436,64 @@ open ≲-Reasoning
 #### Exercise `≃-implies-≲` (practice)
 
 Show that every isomorphism implies an embedding.
-```agda
-postulate
-  ≃-implies-≲ : ∀ {A B : Set}
-    → A ≃ B
-      -----
-    → A ≲ B
-```
+
+    postulate
+      ≃-implies-≲ : ∀ {A B : Set}
+        → A ≃ B
+          -----
+        → A ≲ B
 
 ```agda
 -- Your code goes here
+≃-implies-≲ : ∀ {A B : Set} → A ≃ B → A ≲ B
+≃-implies-≲ A≃B =
+  record
+    { to      = to A≃B
+    ; from    = from A≃B
+    ; from∘to = from∘to A≃B
+    }
 ```
 
 #### Exercise `_⇔_` (practice) {#iff}
 
 Define equivalence of propositions (also known as "if and only if") as follows:
 ```agda
+infix 0 _⇔_
 record _⇔_ (A B : Set) : Set where
   field
     to   : A → B
     from : B → A
+open _⇔_
 ```
 Show that equivalence is reflexive, symmetric, and transitive.
 
 ```agda
 -- Your code goes here
+
+⇔-refl : ∀ {A : Set} → A ⇔ A
+⇔-refl =
+  record
+    { to   = λ{x → x}
+    ; from = λ{y → y}
+    }
+
+⇔-sym : ∀ {A B : Set} → A ⇔ B → B ⇔ A
+⇔-sym A⇔B =
+  record
+    { to   = from A⇔B
+    ; from = to A⇔B
+    }
+
+⇔-trans : ∀ {A B C : Set}
+  → A ⇔ B
+  → B ⇔ C
+  ----------
+  → A ⇔ C
+⇔-trans A⇔B B⇔C =
+  record
+    { to   = to B⇔C ∘ to A⇔B
+    ; from = from A⇔B ∘ from B⇔C
+    }
 ```
 
 #### Exercise `Bin-embedding` (stretch) {#Bin-embedding}
@@ -481,6 +514,45 @@ which satisfy the following property:
 Using the above, establish that there is an embedding of `ℕ` into `Bin`.
 ```agda
 -- Your code goes here
+
+open import Data.Nat using (ℕ; zero; suc; _+_; _*_)
+open import Data.Nat.Properties using (+-suc)
+
+data Bin : Set where
+  ⟨⟩ : Bin
+  _O : Bin → Bin
+  _I : Bin → Bin
+
+inc : Bin → Bin
+inc ⟨⟩ = ⟨⟩ I
+inc (n O) = n I
+inc (n I) = (inc n) O
+
+to-bin : ℕ → Bin
+to-bin zero = ⟨⟩ O
+to-bin (suc n) = inc (to-bin n)
+
+from-bin : Bin → ℕ
+from-bin ⟨⟩ = zero
+from-bin (n O) = 2 * from-bin n
+from-bin (n I) = 1 + (2 * from-bin n)
+
+bin-from-inc : ∀ (b : Bin) → from-bin (inc b) ≡ suc (from-bin b)
+bin-from-inc ⟨⟩ = refl
+bin-from-inc (b O) = refl
+bin-from-inc (b I) rewrite bin-from-inc b | +-suc (from-bin b) (from-bin b + 0) = refl
+
+from-to-bin : ∀ (n : ℕ) → from-bin (to-bin n) ≡ n
+from-to-bin zero = refl
+from-to-bin (suc n) rewrite bin-from-inc (to-bin n) | from-to-bin n = refl
+
+ℕ-≲-Bin : ℕ ≲ Bin
+ℕ-≲-Bin =
+  record
+    { to      = to-bin
+    ; from    = from-bin
+    ; from∘to = from-to-bin
+    }
 ```
 
 Why do `to` and `from` not form an isomorphism?
