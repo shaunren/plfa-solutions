@@ -13,10 +13,10 @@ and classical logic.
 ## Imports
 
 ```agda
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; sym)
 open import Data.Nat using (ℕ; zero; suc)
 open import Data.Empty using (⊥; ⊥-elim)
-open import Data.Sum using (_⊎_; inj₁; inj₂)
+open import Data.Sum using (_⊎_; inj₁; inj₂) renaming ([_,_] to case-⊎)
 open import Data.Product using (_×_)
 open import plfa.part1.Isomorphism using (_≃_; extensionality)
 ```
@@ -191,6 +191,13 @@ is irreflexive, that is, `n < n` holds for no `n`.
 
 ```agda
 -- Your code goes here
+
+open import plfa.part1.Relations using (_<_; z<s; s<s)
+
+<-irreflexive : ∀ {n : ℕ} → ¬ (n < n)
+<-irreflexive {zero}  = λ()
+<-irreflexive {suc n} = λ{(s<s n<n) → <-irreflexive n<n}
+
 ```
 
 
@@ -209,6 +216,54 @@ but that when one holds the negation of the other two must also hold.
 
 ```agda
 -- Your code goes here
+
+open import Data.Product using (_×_; proj₁; proj₂; _,_)
+open import Function using (_∘_)
+
+_≮_ : ℕ → ℕ → Set
+x ≮ y = ¬ (x < y)
+
+≢-sym : ∀ {m n : ℕ} → m ≢ n → n ≢ m
+≢-sym m≢n = m≢n ∘ sym
+
+≡-≮ : ∀ {m n : ℕ} → m ≡ n → m ≮ n
+≡-≮ refl = <-irreflexive
+
+<-≢ : ∀ {m n : ℕ} → m < n → m ≢ n
+<-≢ z<s       = λ()
+<-≢ (s<s m<n) = λ{refl → <-≢ m<n refl}
+
+<-≯ : ∀ {m n : ℕ} → m < n → n ≮ m
+<-≯ z<s       = λ()
+<-≯ (s<s m<n) = λ{(s<s n<m) → <-≯ m<n n<m}
+
+data Trichotomous (m n : ℕ) : Set where
+
+  lesser :
+      m < n → m ≢ n → n ≮ m
+      ---------------------
+    → Trichotomous m n
+
+  greater :
+      n < m → m ≢ n → m ≮ n
+      ---------------------
+    → Trichotomous m n
+
+  equal :
+      m ≡ n → m ≮ n → n ≮ m
+      ---------------------
+    → Trichotomous m n
+
+trichotomous : ∀ (m n : ℕ) → Trichotomous m n
+trichotomous zero zero    = equal refl <-irreflexive <-irreflexive
+trichotomous zero (suc n) = lesser z<s (<-≢ z<s) (<-≯ z<s)
+trichotomous (suc m) zero = greater z<s (≢-sym (<-≢ z<s)) (<-≯ z<s)
+trichotomous (suc m) (suc n)
+  with trichotomous m n
+...  | lesser  m<n  _ _ = lesser  (s<s m<n) (<-≢ (s<s m<n)) (<-≯ (s<s m<n))
+...  | greater n<m  _ _ = greater (s<s n<m) (≢-sym (<-≢ (s<s n<m))) (<-≯ (s<s n<m))
+...  | equal   refl _ _ = equal   refl <-irreflexive <-irreflexive
+
 ```
 
 #### Exercise `⊎-dual-×` (recommended)
@@ -222,6 +277,19 @@ This result is an easy consequence of something we've proved previously.
 
 ```agda
 -- Your code goes here
+
+→-distrib-⊎ : ∀ {A B C : Set} → (A ⊎ B → C) ≃ ((A → C) × (B → C))
+→-distrib-⊎ =
+  record
+    { to      = λ{ f → ( f ∘ inj₁ , f ∘ inj₂ ) }
+    ; from    = λ{ ( g , h ) → λ{ (inj₁ x) → g x ; (inj₂ y) → h y } }
+    ; from∘to = λ{ f → extensionality λ{ (inj₁ x) → refl ; (inj₂ y) → refl } }
+    ; to∘from = λ{ ( g , h ) → refl }
+    }
+
+⊎-dual-× : ∀ {A B : Set} → ¬ (A ⊎ B) ≃ (¬ A) × (¬ B)
+⊎-dual-× = →-distrib-⊎
+
 ```
 
 
@@ -231,6 +299,15 @@ Do we also have the following?
 
 If so, prove; if not, can you give a relation weaker than
 isomorphism that relates the two sides?
+
+```agda
+
+-- Only the following direction holds:
+×-dual-⊎ : ∀ {A B : Set} → (¬ A) ⊎ (¬ B) → ¬ (A × B)
+×-dual-⊎ (inj₁ ¬A) = λ{ ( x , _ ) → ¬A x }
+×-dual-⊎ (inj₂ ¬B) = λ{ ( _ , y ) → ¬B y }
+
+```
 
 
 ## Intuitive and Classical logic
@@ -379,6 +456,43 @@ Show that each of these implies all the others.
 
 ```agda
 -- Your code goes here
+
+-- 1=>2
+em→¬¬ : ∀ {A : Set} → (A ⊎ ¬ A) → (¬ ¬ A → A)
+em→¬¬ (inj₁ x)  = λ{ ¬¬x → x }
+em→¬¬ (inj₂ ¬x) =  λ{ ¬¬x → ⊥-elim (¬¬x ¬x) }
+
+-- 1=>3
+em→peirce : ∀ {A B : Set} → (A ⊎ ¬ A) → (((A → B) → A) → A)
+em→peirce (inj₁ x)  = λ{ f → x }
+em→peirce (inj₂ ¬x) = λ{ f → f (⊥-elim ∘ ¬x) }
+
+
+-- 3=>1
+peirce→em : (∀ {A B : Set} → (((A → B) → A) → A)) → (∀ {A : Set} → A ⊎ ¬ A)
+peirce→em peirce = peirce (⊥-elim ∘ em-irrefutable)
+
+-- 1=>4
+em→imp-dis : ∀ {A B : Set} → (A ⊎ ¬ A) → ((A → B) → ¬ A ⊎ B)
+em→imp-dis (inj₁ x)  = λ{ f → inj₂ (f x) }
+em→imp-dis (inj₂ ¬x) = λ{ _ → inj₁ ¬x }
+
+-- 4=>1
+imp-dis→em : (∀ {A B : Set} → ((A → B) → ¬ A ⊎ B)) → (∀ {A : Set} → A ⊎ ¬ A)
+imp-dis→em todis = ⊎-comm (todis Function.id)
+  where ⊎-comm = case-⊎ inj₂ inj₁
+
+-- 2=>5
+¬¬→demorgan : (∀ {A : Set} → ¬ ¬ A → A) → (∀ {A B : Set} → ¬ (¬ A × ¬ B) → A ⊎ B)
+¬¬→demorgan ¬¬ = λ{ ¬⟨¬x×¬y⟩ → ¬¬ (¬⟨¬x×¬y⟩ ∘ to ⊎-dual-×) }
+  where open _≃_
+
+-- 5=>1
+demorgan→em : (∀ {A B : Set} → ¬ (¬ A × ¬ B) → A ⊎ B) → (∀ {A : Set} → A ⊎ ¬ A)
+demorgan→em demorgan = demorgan ¬⟨¬x×¬¬x⟩
+  where ¬⟨¬x×¬¬x⟩ : ∀ {A : Set} → ¬ (¬ A × ¬ ¬ A)
+        ¬⟨¬x×¬¬x⟩ ( ¬x , ¬¬x ) = ¬¬x ¬x
+
 ```
 
 
@@ -394,6 +508,20 @@ of two stable formulas is stable.
 
 ```agda
 -- Your code goes here
+
+¬-stable : ∀ {A : Set} → Stable (¬ A)
+¬-stable = ¬¬¬-elim
+
+×-stable : ∀ {A B : Set}
+  → Stable A
+  → Stable B
+    --------------
+  → Stable (A × B)
+×-stable ¬¬x→x ¬¬y→y =
+  λ{ ¬¬⟨x×y⟩ →
+     ( ¬¬x→x (λ{ ¬x → ¬¬⟨x×y⟩ (¬x ∘ proj₁) })
+     , ¬¬y→y (λ{ ¬y → ¬¬⟨x×y⟩ (¬y ∘ proj₂) }) ) }
+
 ```
 
 ## Standard Prelude
