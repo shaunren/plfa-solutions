@@ -954,10 +954,21 @@ data Can where
       ---------
       Can (⟨⟩ O)
 
-  one : ∀ {b : Bin}
+  one :
+      ---------
+      Can (⟨⟩ I)
+
+  suc-O : ∀ {b : Bin}
+    → Can b
     → One b
       ---------
+    → Can (b O)
+
+  suc-I : ∀ {b : Bin}
     → Can b
+    → One b
+      ---------
+    → Can (b I)
 
 data One where
   ⟨⟩I :
@@ -982,18 +993,17 @@ inc-one ⟨⟩I = ⟨⟩I O
 inc-one (ob O) = ob I
 inc-one (ob I) = (inc-one ob) O
 
-inc-can : ∀ {b : Bin}
-  → Can b
-    ------------
-  → Can (inc b)
-inc-can zero   = one ⟨⟩I
-inc-can (one ob) = one (inc-one ob)
+inc-can : ∀ {b : Bin} → Can b → Can (inc b)
+inc-can zero = one
+inc-can one = suc-O one ⟨⟩I
+inc-can (suc-O cb ob) = suc-I cb ob
+inc-can (suc-I cb ob) = suc-O (inc-can cb) (inc-one ob)
 
-to-can : ∀ {n : ℕ}
-    ----------
-  → Can (to n)
-to-can {zero}  = zero
-to-can {suc n} = inc-can (to-can {n})
+
+to-can : ∀ (n : ℕ) → Can (to n)
+to-can zero    = zero
+to-can (suc n) = inc-can (to-can n)
+
 
 from-inc : ∀ {b : Bin} → from (inc b) ≡ suc (from b)
 from-inc {⟨⟩} = refl
@@ -1046,9 +1056,10 @@ to-from-can : ∀ {b : Bin}
   → Can b
     ---------------
   → to (from b) ≡ b
-to-from-can zero     = refl
-to-from-can (one ob) = to-from-one ob
-
+to-from-can zero          = refl
+to-from-can one           = refl
+to-from-can (suc-O _ ob)  = to-from-one (ob O)
+to-from-can (suc-I _ ob)  = to-from-one (ob I)
 ```
 
 ## Standard library
