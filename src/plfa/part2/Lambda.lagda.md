@@ -54,13 +54,14 @@ open import Data.Bool using (Bool; true; false; T; not)
 open import Data.Empty using (⊥; ⊥-elim)
 open import Data.List using (List; _∷_; [])
 open import Data.Nat using (ℕ; zero; suc)
-open import Data.Product using (∃-syntax; _×_)
+open import Data.Product using (∃-syntax; _×_) renaming (_,_ to ⟨_,_⟩)
 open import Data.String using (String; _≟_)
 open import Data.Unit using (tt)
 open import Relation.Nullary using (Dec; yes; no; ¬_)
 open import Relation.Nullary.Decidable using (False; toWitnessFalse)
 open import Relation.Nullary.Negation using (¬?)
 open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl)
+open import Function using (_∘_)
 ```
 
 ## Syntax of terms
@@ -193,7 +194,11 @@ two natural numbers.  Your definition may use `plus` as
 defined earlier.
 
 ```agda
--- Your code goes here
+mul : Term
+mul = μ "*" ⇒ ƛ "m" ⇒ ƛ "n" ⇒
+        case ` "m"
+          [zero⇒ `zero
+          |suc "m" ⇒ plus · ` "m" · (` "*" · ` "m" · ` "n") ]
 ```
 
 
@@ -205,7 +210,9 @@ definition may use `plusᶜ` as defined earlier (or may not
 — there are nice definitions both ways).
 
 ```agda
--- Your code goes here
+mulᶜ : Term
+mulᶜ =  ƛ "m" ⇒ ƛ "n" ⇒ ƛ "s" ⇒ ƛ "z" ⇒
+        ` "m" · (` "n" · ` "s") · ` "z"
 ```
 
 
@@ -258,6 +265,18 @@ plus′ = μ′ + ⇒ ƛ′ m ⇒ ƛ′ n ⇒
   n  =  ` "n"
 ```
 Write out the definition of multiplication in the same style.
+
+```agda
+mul′ : Term
+mul′ = μ′ * ⇒ ƛ′ m ⇒ ƛ′ n ⇒
+          case′ m
+            [zero⇒ `zero
+            |suc m ⇒ plus · m · (* · m · n) ]
+  where
+  *  =  ` "*"
+  m  =  ` "m"
+  n  =  ` "n"
+```
 
 
 ### Formal vs informal
@@ -540,6 +559,33 @@ substitution.
 
 ```agda
 -- Your code goes here
+
+subIfUnequal : Term → Id → Id → Term → Term
+
+infix 9 _[_:=_]′
+
+_[_:=_]′ : Term → Id → Term → Term
+(ƛ x ⇒ N) [ y := V ]′                      = ƛ x ⇒ subIfUnequal N x y V
+(case L [zero⇒ M |suc x ⇒ N ]) [ y := V ]′ = case L [ y := V ] [zero⇒ M [ y := V ] |suc x ⇒ subIfUnequal N x y V ]
+(μ x ⇒ N) [ y := V ]′                      = μ x ⇒ subIfUnequal N x y V
+N [ y := V ]′                              = N [ y := V ]
+
+subIfUnequal N x y V with x ≟ y
+... | yes _ = N
+... | no  _ = N [ y := V ]′
+
+
+-- Checks
+_ : (ƛ "x" ⇒ ` "y") [ "y" := `zero ]′ ≡ ƛ "x" ⇒ `zero
+_ = refl
+
+_ : (ƛ "x" ⇒ ` "x") [ "x" := `zero ]′ ≡ ƛ "x" ⇒ ` "x"
+_ = refl
+
+_ : (case ` "x" [zero⇒ ` "x" |suc "x" ⇒ ` "x" ]) [ "x" := `zero ]′
+  ≡  case `zero [zero⇒ `zero |suc "x" ⇒ ` "x" ]
+_ = refl
+
 ```
 
 
@@ -763,7 +809,35 @@ Show that the first notion of reflexive and transitive closure
 above embeds into the second. Why are they not isomorphic?
 
 ```agda
--- Your code goes here
+open import plfa.part1.Isomorphism using (_≲_)
+
+trans : ∀ {L M N} → (L —↠ M) → (M —↠ N) → (L —↠ N)
+trans     (_ ∎)                 L—↠N  = L—↠N
+trans {L} (L —→⟨ L—→L′ ⟩ L′—↠M) M—↠N  = L —→⟨ L—→L′ ⟩ trans L′—↠M M—↠N
+
+—↠≲—↠ : ∀ {M N} → M —↠ N ≲ M —↠′ N
+—↠≲—↠ {M} {N} =
+  record
+    { to      = to
+    ; from    = from
+    ; from∘to = from∘to
+    }
+  where
+
+    to : ∀ {M N} → (M —↠ N) → (M —↠′ N)
+    to (_ ∎)               = refl′
+    to (M —→⟨ M—→L ⟩ L—↠N) = trans′ (step′ M—→L) (to L—↠N)
+
+    from : ∀ {M N} → (M —↠′ N) → (M —↠ N)
+    from (step′ {M} {N} M—→N)  = M —→⟨ M—→N ⟩ N ∎
+    from (refl′ {M})           = M ∎
+    from (trans′ M—↠′L L—↠′N)  = trans (from M—↠′L) (from L—↠′N)
+
+    from∘to : ∀ {M N}
+              → ∀ (M—↠N : M —↠ N) → (from ∘ to) M—↠N ≡ M—↠N
+    from∘to (_ ∎)                                    = refl
+    from∘to (M —→⟨ M—→L ⟩ L—↠N) rewrite from∘to L—↠N = refl
+
 ```
 
 ## Confluence
@@ -928,7 +1002,38 @@ In the next chapter, we will see how to compute such reduction sequences.
 Write out the reduction sequence demonstrating that one plus one is two.
 
 ```agda
--- Your code goes here
+one : Term
+one = `suc `zero
+
+_ : plus · one · one —↠ `suc `suc `zero
+_ =
+  begin
+    plus · one · one
+  —→⟨ ξ-·₁ (ξ-·₁ β-μ) ⟩
+    (ƛ "m" ⇒ ƛ "n" ⇒
+      case ` "m" [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+        · one · one
+  —→⟨ ξ-·₁ (β-ƛ (V-suc V-zero)) ⟩
+    (ƛ "n" ⇒
+      case one [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+        · one
+  —→⟨ β-ƛ (V-suc V-zero) ⟩
+    case one [zero⇒ one |suc "m" ⇒ `suc (plus · ` "m" · one) ]
+  —→⟨ β-suc V-zero ⟩
+    `suc (plus · `zero · one)
+  —→⟨ ξ-suc (ξ-·₁ (ξ-·₁ β-μ)) ⟩
+    `suc ((ƛ "m" ⇒ ƛ "n" ⇒
+      case ` "m" [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+        · `zero · one)
+  —→⟨ ξ-suc (ξ-·₁ (β-ƛ V-zero)) ⟩
+    `suc ((ƛ "n" ⇒
+      case `zero [zero⇒ ` "n" |suc "m" ⇒ `suc (plus · ` "m" · ` "n") ])
+        · one)
+  —→⟨ ξ-suc (β-ƛ (V-suc V-zero)) ⟩
+    `suc (case `zero [zero⇒ one |suc "m" ⇒ `suc (plus · ` "m" · one) ])
+  —→⟨ ξ-suc β-zero ⟩
+    `suc `suc `zero
+  ∎
 ```
 
 
@@ -1036,7 +1141,33 @@ to the list
     [ ⟨ "z" , `ℕ ⟩ , ⟨ "s" , `ℕ ⇒ `ℕ ⟩ ]
 
 ```agda
--- Your code goes here
+open import plfa.part1.Isomorphism using (_≃_)
+
+Context-≃ : Context ≃ List (Id × Type)
+Context-≃ =
+  record
+  { to      = to
+  ; from    = from
+  ; from∘to = from∘to
+  ; to∘from = to∘from
+  }
+  where
+
+    to : Context → List (Id × Type)
+    to ∅           = []
+    to (Γ , x ⦂ A) = ⟨ x , A ⟩ ∷ to Γ
+
+    from : List (Id × Type) → Context
+    from []               = ∅
+    from (⟨ x , A ⟩ ∷ Γs) = from Γs , x ⦂ A
+
+    from∘to : ∀ Γ → (from ∘ to) Γ ≡ Γ
+    from∘to ∅                              = refl
+    from∘to (Γ , x ⦂ x₁) rewrite from∘to Γ = refl
+
+    to∘from : ∀ Γs → (to ∘ from) Γs ≡ Γs
+    to∘from []                                  = refl
+    to∘from (⟨ x , A ⟩ ∷ Γs) rewrite to∘from Γs = refl
 ```
 
 ### Lookup judgment
@@ -1392,7 +1523,16 @@ Using the term `mul` you defined earlier, write out the derivation
 showing that it is well typed.
 
 ```agda
--- Your code goes here
+⊢mul : ∀ {Γ} → Γ ⊢ mul ⦂ `ℕ ⇒ `ℕ ⇒ `ℕ
+⊢mul = ⊢μ (⊢ƛ (⊢ƛ
+        (⊢case (⊢` ∋m)
+          ⊢zero
+          (⊢plus · ⊢` ∋m′ · ((⊢` ∋* · ⊢` ∋m′) · ⊢` ∋n)))))
+  where
+    ∋m  = S′ Z
+    ∋m′ = Z
+    ∋*  = S′ (S′ (S′ Z))
+    ∋n  = S′ Z
 ```
 
 
@@ -1402,7 +1542,14 @@ Using the term `mulᶜ` you defined earlier, write out the derivation
 showing that it is well typed.
 
 ```agda
--- Your code goes here
+⊢mulᶜ : ∀ {Γ A} → Γ  ⊢ mulᶜ ⦂ Ch A ⇒ Ch A ⇒ Ch A
+⊢mulᶜ = ⊢ƛ (⊢ƛ (⊢ƛ (⊢ƛ (
+          (⊢` ∋m) · (⊢` ∋n · ⊢` ∋s) · ⊢` ∋z))))
+  where
+    ∋m = S′ (S′ (S′ Z))
+    ∋n = S′ (S′ Z)
+    ∋s = S′ Z
+    ∋z = Z
 ```
 
 
